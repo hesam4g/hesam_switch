@@ -68,6 +68,7 @@ parser SwitchIngressParser(
 // ---------------------------------------------------------------------------
 // Ingress
 // ---------------------------------------------------------------------------
+// Here is the bloom filter
 Register<bit<32>, bit<8>>(16) bloom_filter;
 
 control SwitchIngress(
