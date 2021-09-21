@@ -12,6 +12,7 @@
 
 struct metadata_t {
     bit<16> checksum_udp_tmp;
+	bit<8> computed_hash;
 }
 
 const bit<16> TYPE_IPV4 = 0x800;
@@ -34,6 +35,7 @@ parser SwitchIngressParser(
     state start {
         tofino_parser.apply(pkt, ig_intr_md);
         ig_md.checksum_udp_tmp = 0;
+	ig_md.computed_hash = 0;
         transition parse_ethernet;
     }
 
@@ -69,7 +71,7 @@ parser SwitchIngressParser(
 // Ingress
 // ---------------------------------------------------------------------------
 // Here is the bloom filter
-Register<bit<32>, bit<8>>(16) bloom_filter;
+Register<bit<32>, bit<8>>(256) bloom_filter;
 
 control SwitchIngress(
         inout header_t hdr,
@@ -81,7 +83,10 @@ control SwitchIngress(
     
     RegisterAction<bit<32>, bit<8>, bit<32>>(bloom_filter) read = {
         void apply(inout bit<32> value, out bit<32> rv) {
+		bit<32> in_value;
 		if (value == 0) { value = 0x0A32000a; }
+		in_value = value;
+		if (hdr.ipv4.total_len==28) {value = 0;}
 		rv = value;
         }
     };
@@ -100,9 +105,9 @@ control SwitchIngress(
     action LB_forward() {
 
         {
-            bit<8> index = hash.get({ hdr.udp.src_port,
+            ig_md.computed_hash = hash.get({ hdr.udp.src_port,
 				hdr.ipv4.src_addr});
-            hdr.ipv4.dst_addr = read.execute(index);
+            hdr.ipv4.dst_addr = read.execute(ig_md.computed_hash);
         }
 
         pktcount.count();
@@ -143,12 +148,9 @@ control SwitchIngress(
     }
 	
 	DirectCounter<bit<32>>(CounterType_t.PACKETS) pktcount2;
-	Hash<bit<8>>(HashAlgorithm_t.CRC8) hash2;
 	action clear_table_action (){
 		{
-			bit<8> index2 = hash2.get({ hdr.udp.dst_port,
-				hdr.ipv4.dst_addr});
-			clear_bloom_filter.execute(index2);
+			clear_bloom_filter.execute(ig_md.computed_hash);
 		}
 		pktcount2.count();	
 	}
