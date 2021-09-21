@@ -1,7 +1,7 @@
 table1 = bfrt.hesam_switch.pipe.SwitchIngress.ipv4_lpm
-entry = table1.entry_with_ipv4_forward(dst_addr=0x0A320005 , port="132").push()
-entry = table1.entry_with_ipv4_forward(dst_addr=0x0A32000b , port="48").push()
-entry = table1.entry_with_ipv4_forward(dst_addr=0x0A320010 , port="48").push()
+entry = table1.entry_with_ipv4_forward(dst_addr=0x0A32000a , dst_mac=0xb687ddc19673, port="1").push()
+entry = table1.entry_with_ipv4_forward(dst_addr=0x0A32000b , dst_mac=0x8a694fdddf15, port="2").push()
+
 
 
 

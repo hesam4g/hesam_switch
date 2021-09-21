@@ -81,7 +81,7 @@ control SwitchIngress(
     
     RegisterAction<bit<32>, bit<8>, bit<32>>(bloom_filter) read = {
         void apply(inout bit<32> value, out bit<32> rv) {
-		if (value == 0) { value = 0x0a32000b; }
+		if (value == 0) { value = 0x0A32000a; }
 		rv = value;
         }
     };
