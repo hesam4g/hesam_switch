@@ -1,0 +1,59 @@
+digraph ingress {
+cond_4 [ shape=record, style="filled", fillcolor=cornsilk, label="hdr.ipv4.$valid == 1\l\l
+ "];
+cond_5 [ shape=record, style="filled", fillcolor=cornsilk, label="hdr.ipv4.dst_addr == 171049061\l\l
+ "];
+tbl_hesam_switch210 [ shape=record, style="filled", fillcolor=cornsilk, label="tbl_hesam_switch210\l\l
+R:\l
+ hdr.ipv4.src_addr\l
+\lW:\l
+ ig_md.available_server_meta\l
+ "];
+tbl_hesam_switch213 [ shape=record, style="filled", fillcolor=cornsilk, label="tbl_hesam_switch213\l\l
+R:\l
+ hdr.ipv4.src_addr\l
+\lW:\l
+ ig_md.available_server_meta\l
+ "];
+cond_6 [ shape=record, style="filled", fillcolor=cornsilk, label="hdr.ipv4.dst_addr == 171049060\l\l
+ "];
+LB_0 [ shape=record, style="filled", fillcolor=cornsilk, label="LB_0\l\l
+M:\l
+ hdr.ipv4.dst_addr\l
+\lR:\l
+ ig_md.available_server_meta\l
+ hdr.ipv4.total_len\l
+\lW:\l
+ ig_md.computed_hash\l
+ hdr.ipv4.dst_addr\l
+ ig_intr_md_for_dprsr.drop_ctl\l
+ "];
+ipv4_lpm_0 [ shape=record, style="filled", fillcolor=cornsilk, label="ipv4_lpm_0\l\l
+M:\l
+ hdr.ipv4.dst_addr\l
+\lR:\l
+ hdr.ipv4.ttl\l
+\lW:\l
+ ig_intr_md_for_tm.ucast_egress_port\l
+ hdr.ethernet.dst_addr\l
+ hdr.ipv4.ttl\l
+ ig_intr_md_for_dprsr.drop_ctl\l
+ "];
+tbl_hesam_switch219 [ shape=record, style="filled", fillcolor=cornsilk, label="tbl_hesam_switch219\l\l
+W:\l
+ ig_intr_md_for_tm.bypass_egress\l
+ "];
+    PARSER -> cond_4
+    cond_4 -> cond_5
+    PARSER -> cond_4
+    cond_4 -> DEPARSER
+    cond_5 -> tbl_hesam_switch210
+    cond_5 -> tbl_hesam_switch213
+    tbl_hesam_switch210 -> cond_6
+    tbl_hesam_switch213 -> cond_6
+    cond_6 -> LB_0
+    cond_6 -> ipv4_lpm_0
+    LB_0 -> ipv4_lpm_0
+    ipv4_lpm_0 -> tbl_hesam_switch219
+    tbl_hesam_switch219 -> DEPARSER
+}

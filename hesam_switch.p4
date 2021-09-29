@@ -1,4 +1,13 @@
 
+/* -*- P4_16 -*- */
+
+/*******************************************************************************
+ * BAREFOOT NETWORKS CONFIDENTIAL & PROPRIETARY
+ *
+ * Copyright (c) Intel Corporation
+ * SPDX-License-Identifier: CC-BY-ND-4.0
+ */
+
 
 #include <core.p4>
 #if __TARGET_TOFINO__ == 2
@@ -13,6 +22,7 @@
 struct metadata_t {
     bit<16> checksum_udp_tmp;
 	bit<8> computed_hash;
+	ipv4_addr_t available_server_meta;
 }
 
 const bit<16> TYPE_IPV4 = 0x800;
@@ -36,6 +46,7 @@ parser SwitchIngressParser(
         tofino_parser.apply(pkt, ig_intr_md);
         ig_md.checksum_udp_tmp = 0;
 	ig_md.computed_hash = 0;
+	ig_md.available_server_meta = 0;
         transition parse_ethernet;
     }
 
@@ -71,7 +82,14 @@ parser SwitchIngressParser(
 // Ingress
 // ---------------------------------------------------------------------------
 // Here is the bloom filter
-Register<bit<32>, bit<8>>(256) bloom_filter;
+
+struct pair {
+	bit<32> is_valid;
+	bit<32> server_address;
+}
+
+Register<pair, bit<8>>(256) bloom_filter;
+Register<bit<32>, _>(1) available_server;
 
 control SwitchIngress(
         inout header_t hdr,
@@ -80,20 +98,35 @@ control SwitchIngress(
         in ingress_intrinsic_metadata_from_parser_t ig_intr_prsr_md,
         inout ingress_intrinsic_metadata_for_deparser_t ig_intr_dprsr_md,
         inout ingress_intrinsic_metadata_for_tm_t ig_intr_tm_md) {
+	
+
     
-    RegisterAction<bit<32>, bit<8>, bit<32>>(bloom_filter) read = {
-        void apply(inout bit<32> value, out bit<32> rv) {
-		bit<32> in_value;
-		if (value == 0) { value = 0x0A32000a; }
-		in_value = value;
-		if (hdr.ipv4.total_len==28) {value = 0;}
-		rv = value;
-        }
-    };
-	RegisterAction<bit<32>, bit<8>, bit<32>>(bloom_filter) clear_bloom_filter = {
-		void apply(inout bit<32> value) {
-			value = 0;
+	
+	bit<32> vip = 0x0A320064;
+	bit<32> vip2 = 0x0A320065;
+
+    	RegisterAction<pair, bit<8>, bit<32>>(bloom_filter) read = {
+        void apply(inout pair value, out bit<32> rv) {
+		if (value.is_valid == 0) {
+			value.server_address = ig_md.available_server_meta;
+			value.is_valid = 1;
 		}
+		rv = value.server_address;
+		if (hdr.ipv4.total_len==28) {value.is_valid = 0;}
+        	}
+	};
+	
+    	RegisterAction<bit<32>, _, bit<32>>(available_server) read_avaiable_server = {
+	void apply(inout bit<32> value, out bit<32> rv) {
+		rv = value;
+    		}
+	};
+
+	RegisterAction<bit<32>, _, bit<32>>(available_server) update_available_server = {
+	void apply(inout bit<32> value, out bit<32> rv) {
+		value = hdr.ipv4.src_addr;
+		rv = value;
+    		}
 	};
 
     DirectCounter<bit<32>>(CounterType_t.PACKETS) pktcount;
@@ -146,30 +179,24 @@ control SwitchIngress(
         size = 1024;
         default_action = drop_();
     }
-	
-	DirectCounter<bit<32>>(CounterType_t.PACKETS) pktcount2;
-	action clear_table_action (){
-		{
-			clear_bloom_filter.execute(ig_md.computed_hash);
-		}
-		pktcount2.count();	
-	}
-	table clear_table {
-		key = {
-			hdr.ipv4.src_addr: exact;
-		}
-		actions = {
-			clear_table_action;
-		}
-		counters = pktcount2;
-		size = 1024;
-	}
+
+
     apply {
         if (hdr.ipv4.isValid()) {
-		LB.apply();
+
+
+
+		if(hdr.ipv4.dst_addr == vip2) {
+			ig_md.available_server_meta = update_available_server.execute(0);
+		}
+		else {
+			ig_md.available_server_meta = read_avaiable_server.execute(0);
+		}
+		
+		if(hdr.ipv4.dst_addr == vip) { LB.apply(); }
 		ipv4_lpm.apply();
-		clear_table.apply();
-        ig_intr_tm_md.bypass_egress = 1w1;
+		
+        	ig_intr_tm_md.bypass_egress = 1w1;
         }
     } 
 }
